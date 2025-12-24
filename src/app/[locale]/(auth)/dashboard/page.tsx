@@ -19,7 +19,7 @@ export async function generateMetadata(props: {
 export default function Dashboard() {
   return (
     <div>
-      
+
     </div>
   );
 }

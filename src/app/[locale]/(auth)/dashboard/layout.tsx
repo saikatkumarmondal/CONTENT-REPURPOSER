@@ -7,6 +7,6 @@ export default async function DashboardLayout(props: {
   const { locale } = await props.params;
   setRequestLocale(locale);
 
-  // Simply return children; the sidebar is already wrapped by the parent layout
+  // Return children directly. They are already wrapped by the (auth) layout.
   return <>{props.children}</>;
 }
