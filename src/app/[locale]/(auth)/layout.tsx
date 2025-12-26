@@ -13,13 +13,13 @@ export default async function AuthLayout(props: {
   const clerkLocale = ClerkLocalizations.supportedLocales[locale] ?? ClerkLocalizations.defaultLocale;
 
   return (
-      <ClerkProvider
-          appearance={{ cssLayerName: 'clerk' }}
-          localization={clerkLocale}
-      >
-        <AuthLayoutWrapper>
-          {props.children}
-        </AuthLayoutWrapper>
-      </ClerkProvider>
+    <ClerkProvider
+      appearance={{ cssLayerName: 'clerk' }}
+      localization={clerkLocale}
+    >
+      <AuthLayoutWrapper>
+        {props.children}
+      </AuthLayoutWrapper>
+    </ClerkProvider>
   );
 }

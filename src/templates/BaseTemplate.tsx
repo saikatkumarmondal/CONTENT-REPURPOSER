@@ -36,12 +36,13 @@ export default function BaseTemplate({
     <div className="flex min-h-screen flex-col bg-gray-50">
       {/* ================= TOP BANNER ================= */}
       {showSidebar && (
-        <div className="z-[60] flex h-16 w-full shrink-0 items-center justify-between bg-gray-500 px-6">
+        <div className="z-60 flex h-16 w-full shrink-0 items-center justify-between bg-gray-500 px-6">
           <span className="text-xl font-bold whitespace-nowrap text-white">
             CONTENT REPURPOSER
           </span>
 
           <button
+            type="button"
             className="rounded-md p-2 text-white transition-colors hover:bg-gray-600 lg:hidden"
             onClick={() => setOpen(v => !v)}
             aria-label="Toggle Menu"
@@ -56,7 +57,15 @@ export default function BaseTemplate({
         {showSidebar && open && (
           <div
             onClick={() => setOpen(false)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                setOpen(false);
+              }
+            }}
             className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
+            role="button"
+            tabIndex={0}
+            aria-label="Close sidebar"
           />
         )}
 
@@ -64,14 +73,16 @@ export default function BaseTemplate({
         {showSidebar && (
           <aside
             className={`
-              fixed inset-y-0 left-0 z-50 w-64 transform border-r border-gray-200 bg-white transition-transform duration-300 ease-in-out lg:static
+              fixed inset-y-0 left-0 z-50 w-64 transform border-r border-gray-200 bg-white transition-transform duration-300 ease-in-out max-lg:top-16 lg:static
               lg:translate-x-0
               ${open ? 'translate-x-0' : '-translate-x-full'}
             `}
           >
             <nav className="space-y-1 p-4">
               {sidebarItems.map((item) => {
-                const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                const isActive
+                  = pathname === item.href
+                    || pathname.startsWith(`${item.href}/`);
 
                 return (
                   <Link
@@ -79,10 +90,11 @@ export default function BaseTemplate({
                     href={item.href}
                     onClick={handleLogoClick}
                     className={`
-                      group block rounded-lg px-4 py-2.5 text-sm font-medium
-                      transition-all duration-200
-                      ${isActive
-                    ? 'bg-[#66b2b2] text-white shadow-sm'
+                      relative flex items-center rounded-lg px-4 py-2.5 text-sm font-medium
+                      transition-all duration-200 ease-in-out
+                      ${
+                  isActive
+                    ? 'border-l-4 border-[#66b2b2] bg-[#66b2b2]/10 text-[#66b2b2]'
                     : 'text-gray-700 hover:bg-gray-100 hover:text-[#66b2b2]'
                   }
                     `}
