@@ -16,6 +16,7 @@ import {
   Typography,
 } from '@mui/material';
 import React, { useState } from 'react';
+import {contentTypes, socialPlatforms} from '@/app/data/plateform';
 
 export default function TemplatePage() {
   // Array structure for future backend implementation
@@ -75,15 +76,35 @@ export default function TemplatePage() {
           <Typography sx={{ fontWeight: 700, alignSelf: 'center', display: { xs: 'none', sm: 'block' } }}>
             Filter:
           </Typography>
-          <TextField select size="small" defaultValue="All" sx={{ minWidth: 150, backgroundColor: 'white' }}>
+
+          {/* PLATFORM FILTER */}
+          <TextField
+            select
+            size="small"
+            defaultValue="All"
+            sx={{ minWidth: 150, backgroundColor: 'white' }}
+          >
             <MenuItem value="All">All Platforms</MenuItem>
-            <MenuItem value="LinkedIn">LinkedIn</MenuItem>
-            <MenuItem value="Twitter">Twitter</MenuItem>
+            {socialPlatforms.map(platform => (
+              <MenuItem key={`filter-platform-${platform}`} value={platform}>
+                {platform}
+              </MenuItem>
+            ))}
           </TextField>
-          <TextField select size="small" defaultValue="All" sx={{ minWidth: 150, backgroundColor: 'white' }}>
+
+          {/* CONTENT TYPE FILTER */}
+          <TextField
+            select
+            size="small"
+            defaultValue="All"
+            sx={{ minWidth: 150, backgroundColor: 'white' }}
+          >
             <MenuItem value="All">All Types</MenuItem>
-            <MenuItem value="Post">Post</MenuItem>
-            <MenuItem value="Thread">Thread</MenuItem>
+            {contentTypes.map(type => (
+              <MenuItem key={`filter-type-${type}`} value={type}>
+                {type}
+              </MenuItem>
+            ))}
           </TextField>
         </Stack>
       </Stack>

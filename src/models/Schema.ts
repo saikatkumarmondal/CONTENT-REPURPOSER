@@ -41,3 +41,26 @@ export const userSchema = pgTable('user', {
     .$onUpdate(() => new Date())
     .notNull(),
 });
+
+export const transformationSchema = pgTable('transformation', {
+  id: serial('id').primaryKey(),
+
+  // Field for Clerk User ID (string) to associate data with the user
+  userId: text('user_id').notNull(),
+
+  // Fields from your Transform Form
+  originalContent: text('original_content').notNull(),
+  sourcePlatform: text('source_platform'),
+  targetPlatform: text('target_platform').notNull(),
+  contentType: text('content_type').notNull(),
+  customInstructions: text('custom_instructions'),
+
+  // Field to store the AI result
+  generatedOutput: text('generated_output'),
+
+  createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { mode: 'date' })
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+});

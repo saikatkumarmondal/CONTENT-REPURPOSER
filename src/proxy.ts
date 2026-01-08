@@ -1,8 +1,10 @@
+// src/proxy.ts
 import type { NextFetchEvent, NextRequest } from 'next/server';
 import { detectBot } from '@arcjet/next';
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import createMiddleware from 'next-intl/middleware';
 import { NextResponse } from 'next/server';
+import { process } from 'std-env';
 import arcjet from '@/libs/Arcjet';
 import { routing } from './libs/I18nRouting';
 
@@ -11,11 +13,25 @@ const handleI18nRouting = createMiddleware(routing);
 const isProtectedRoute = createRouteMatcher([
   '/dashboard(.*)',
   '/:locale/dashboard(.*)',
+
+  // All API routes, including protected and public
+  '/api(.*)',
+]);
+
+const isPublicApi = createRouteMatcher([
+  '/api/health(.*)',
+
+  '/api/webhook(.*)',
+  '/:locale/api/webhook(.*)',
+
+  '/api/public(.*)',
+  '/:locale/api/public(.*)',
 ]);
 
 const isAuthPage = createRouteMatcher([
   '/sign-in(.*)',
   '/:locale/sign-in(.*)',
+
   '/sign-up(.*)',
   '/:locale/sign-up(.*)',
 ]);
@@ -38,29 +54,44 @@ export default async function proxy(
   request: NextRequest,
   event: NextFetchEvent,
 ) {
-  // Verify the request with Arcjet
-  // Use `process.env` instead of Env to reduce bundle size in middleware
+  // Arcjet check
   if (process.env.ARCJET_KEY) {
     const decision = await aj.protect(request);
-
     if (decision.isDenied()) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
   }
 
-  // Clerk keyless mode doesn't work with i18n, this is why we need to run the middleware conditionally
-  if (
-    isAuthPage(request) || isProtectedRoute(request)
-  ) {
+  if (isAuthPage(request) || isProtectedRoute(request)) {
     return clerkMiddleware(async (auth, req) => {
       if (isProtectedRoute(req)) {
-        const locale = req.nextUrl.pathname.match(/(\/.*)\/dashboard/)?.at(1) ?? '';
+        const isApi = req.nextUrl.pathname.startsWith('/api');
 
-        const signInUrl = new URL(`${locale}/sign-in`, req.url);
+        if (isApi) {
+          // Check if it's a public API - let it through
+          if (isPublicApi(req)) {
+            return handleI18nRouting(req);
+          }
 
-        await auth.protect({
-          unauthenticatedUrl: signInUrl.toString(),
-        });
+          // Protected API - check auth
+          const { userId } = await auth();
+          if (!userId) {
+            // return NextResponse.json(
+            //   { error: 'Unauthorized', code: 'AUTH_REQUIRED' },
+            //   { status: 401 },
+            // );
+          }
+
+          return handleI18nRouting(req);
+        } else {
+          // Dashboard routes: protect with redirect
+          const locale = req.nextUrl.pathname.match(/(\/.*)\/dashboard/)?.at(1) ?? '';
+          const signInUrl = new URL(`${locale}/sign-in`, req.url);
+
+          await auth.protect({
+            unauthenticatedUrl: signInUrl.toString(),
+          });
+        }
       }
 
       return handleI18nRouting(req);

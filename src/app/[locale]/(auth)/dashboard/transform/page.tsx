@@ -1,15 +1,24 @@
 'use client';
+import type { Socket } from 'socket.io-client';
 import { Autorenew, ContentCopy, Save, Send } from '@mui/icons-material';
 import {
+  Alert,
   Box,
   Button,
+  CircularProgress,
   MenuItem,
   Paper,
   Stack,
   TextField,
   Typography,
 } from '@mui/material';
-import React, { useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import React, { useEffect, useState } from 'react';
+import { io } from 'socket.io-client';
+import { socialPlatforms } from '@/app/data/plateform';
+import { sweetAlert } from '@/utils/notifications';
+
+let socket: Socket;
 
 export default function TransformForm() {
   const [formData, setFormData] = useState({
@@ -20,19 +29,200 @@ export default function TransformForm() {
     customInstructions: '',
   });
 
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState('');
+  const [error, setError] = useState('');
+  const [generateStatus, setGenerateStatus] = useState<string | null>(null);
+
+  const contentTypes = [
+    'Educational',
+    'Promotional',
+    'Personal Story',
+    'How-to Guide',
+    'Listicle',
+    'News Update',
+    'Opinion Piece',
+  ];
+
+  /* 🔌 SOCKET INITIALIZATION */
+  useEffect(() => {
+    socket = io({
+      path: '/socket.io',
+    });
+
+    socket.on('connect', () => {
+      console.log('Socket connected:', socket.id);
+    });
+
+    // Keep server status updates if needed
+    socket.on('generate-status', (status: string) => {
+      setGenerateStatus(status);
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
+
+  /* ⏱️ STATUS SEQUENCER EFFECT */
+  useEffect(() => {
+    if (loading) {
+      const sequence = [
+        'Starting generation...',
+        'Generating AI content...',
+        'Saving generated content...',
+      ];
+
+      let i = 0;
+      setGenerateStatus(sequence[0]);
+
+      const interval = setInterval(() => {
+        i++;
+        if (i < sequence.length) {
+          setGenerateStatus(sequence[i]);
+        } else {
+          clearInterval(interval);
+        }
+      }, 1000);
+
+      return () => clearInterval(interval);
+    }
+  }, [loading]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleSubmit = async () => {
+    if (!formData.originalContent || !formData.targetPlatform || !formData.contentType) {
+      sweetAlert('error', 'Please fill in all required fields');
+      return;
+    }
+
+    if (formData.sourcePlatform === formData.targetPlatform && formData.sourcePlatform !== '') {
+      sweetAlert('error', 'Source and Target platforms cannot be the same');
+      return;
+    }
+
+    // Reset result and status to trigger loader
+    setLoading(true);
+    setError('');
+    setResult('');
+    setGenerateStatus('Starting generation...');
+
+    try {
+      const response = await fetch('/api/v1/content/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          socketId: socket?.id,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const errorMessage = data.errors
+          ? Object.values(data.errors).flat().join(', ')
+          : data.message;
+        throw new Error(errorMessage || 'Failed to generate content');
+      }
+
+      setResult(data.generatedOutput);
+      setGenerateStatus('Generation completed ✅');
+
+      // Removed sweetAlert success
+      // sweetAlert('success', 'Content generated successfully!');
+    } catch (err: any) {
+      setError(err.message);
+      setGenerateStatus(null);
+      sweetAlert('error', err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(result);
+    sweetAlert('success', 'Copied to clipboard!');
+  };
+
   return (
     <Stack spacing={4} sx={{ width: '100%', maxWidth: 900, mx: 'auto', pb: 5 }}>
 
-      {/* SECTION 1: ORIGINAL CONTENT */}
-      <Paper
-        elevation={0}
-        sx={{ p: { xs: 2, md: 3 }, border: '1px solid #e5e7eb', borderRadius: 2 }}
-      >
+      {/* 3D LOADER OVERLAY */}
+      <AnimatePresence>
+        {loading && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(15, 23, 42, 0.8)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 9999,
+              backdropFilter: 'blur(8px)',
+            }}
+          >
+            {/* 3D Visual Element */}
+            <Box sx={{ position: 'relative', width: 80, height: 80, mb: 4 }}>
+              <motion.div
+                animate={{ rotateY: 360, rotateX: 360 }}
+                transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  border: '2px solid #60a5fa',
+                  boxShadow: '0 0 20px #3b82f6',
+                  borderRadius: '12px',
+                }}
+              />
+              <motion.div
+                animate={{ rotateY: -360, rotateX: -360 }}
+                transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
+                style={{
+                  position: 'absolute',
+                  top: 10,
+                  left: 10,
+                  right: 10,
+                  bottom: 10,
+                  border: '2px solid #c084fc',
+                  boxShadow: '0 0 15px #a855f7',
+                  borderRadius: '8px',
+                }}
+              />
+            </Box>
+
+            {/* Sequential Status Text */}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={generateStatus}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 1.1 }}
+                transition={{ duration: 0.3 }}
+              >
+                <Typography sx={{ color: 'white', fontWeight: 600, fontSize: '1.25rem', letterSpacing: '0.5px' }}>
+                  {generateStatus}
+                </Typography>
+              </motion.div>
+            </AnimatePresence>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* SECTION 1 */}
+      <Paper elevation={0} sx={{ p: { xs: 2, md: 3 }, border: '1px solid #e5e7eb', borderRadius: 2 }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2, color: '#374151' }}>
           Original Content
         </Typography>
@@ -56,60 +246,41 @@ export default function TransformForm() {
         />
       </Paper>
 
-      {/* SECTION 2: CONFIGURATION GRID */}
-      <Paper
-        elevation={0}
-        sx={{ p: { xs: 2, md: 3 }, border: '1px solid #e5e7eb', borderRadius: 2 }}
-      >
+      {/* SECTION 2 */}
+      <Paper elevation={0} sx={{ p: { xs: 2, md: 3 }, border: '1px solid #e5e7eb', borderRadius: 2 }}>
         <Box display="grid" gridTemplateColumns={{ xs: '1fr', md: '1fr 1fr' }} gap={3}>
-          <TextField
-            select
-            label="Source Platform"
-            name="sourcePlatform"
-            value={formData.sourcePlatform}
-            onChange={handleChange}
-          >
-            <MenuItem value="Blog">Blog Post</MenuItem>
-            <MenuItem value="YouTube">YouTube Script</MenuItem>
-            <MenuItem value="Article">News Article</MenuItem>
+          <TextField select label="Source Platform" name="sourcePlatform" value={formData.sourcePlatform} onChange={handleChange}>
+            {socialPlatforms.map(platform => (
+              <MenuItem key={`source-${platform}`} value={platform}>
+                {platform === 'Blog' ? 'Blog Post' : platform}
+              </MenuItem>
+            ))}
           </TextField>
 
-          <TextField
-            select
-            label="Target Platform"
-            name="targetPlatform"
-            value={formData.targetPlatform}
-            onChange={handleChange}
-          >
-            <MenuItem value="LinkedIn">LinkedIn</MenuItem>
-            <MenuItem value="Twitter">Twitter / X</MenuItem>
-            <MenuItem value="Instagram">Instagram</MenuItem>
+          <TextField select label="Target Platform" name="targetPlatform" value={formData.targetPlatform} onChange={handleChange}>
+            {socialPlatforms.map(platform => (
+              <MenuItem key={`target-${platform}`} value={platform}>
+                {platform}
+              </MenuItem>
+            ))}
           </TextField>
 
-          <TextField
-            select
-            fullWidth
-            label="Content Type"
-            name="contentType"
-            value={formData.contentType}
-            onChange={handleChange}
-            sx={{ gridColumn: { md: 'span 2' } }}
-          >
-            <MenuItem value="Professional">Professional Post</MenuItem>
-            <MenuItem value="Thread">Educational Thread</MenuItem>
-            <MenuItem value="Short">Short Summary</MenuItem>
+          <TextField select label="Content Type" name="contentType" value={formData.contentType} onChange={handleChange} sx={{ gridColumn: { md: 'span 2' } }}>
+            {contentTypes.map(type => (
+              <MenuItem key={type} value={type}>
+                {type}
+              </MenuItem>
+            ))}
           </TextField>
         </Box>
       </Paper>
 
-      {/* SECTION 3: INSTRUCTIONS & BUTTON */}
-      <Paper
-        elevation={0}
-        sx={{ p: { xs: 2, md: 3 }, border: '1px solid #e5e7eb', borderRadius: 2 }}
-      >
+      {/* SECTION 3 */}
+      <Paper elevation={0} sx={{ p: { xs: 2, md: 3 }, border: '1px solid #e5e7eb', borderRadius: 2 }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2, color: '#374151' }}>
           Custom Instructions
         </Typography>
+
         <TextField
           fullWidth
           multiline
@@ -125,7 +296,9 @@ export default function TransformForm() {
           variant="contained"
           fullWidth
           size="large"
-          endIcon={<Send />}
+          endIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Send />}
+          onClick={handleSubmit}
+          disabled={loading}
           sx={{
             'py': 1.5,
             'fontSize': '1rem',
@@ -133,35 +306,31 @@ export default function TransformForm() {
             'textTransform': 'none',
             'backgroundColor': '#2563eb',
             'borderRadius': '8px',
-            'transition': 'all 0.2s ease-in-out',
-            '&:hover': {
-              backgroundColor: '#1d4ed8',
-              boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
-              transform: 'translateY(-1px)',
-            },
-            '&:active': {
-              transform: 'translateY(0)',
-              backgroundColor: '#1e40af',
-            },
+            '&:hover': { backgroundColor: '#1d4ed8' },
           }}
         >
-          Generate Content
+          {loading ? 'AI is Thinking...' : 'Generate Content'}
         </Button>
       </Paper>
 
-      {/* SECTION 4: OUTPUT AREA */}
-      <Paper
-        elevation={0}
-        sx={{
-          p: { xs: 2, md: 3 },
-          border: '2px dashed #d1d5db',
-          borderRadius: 2,
-          backgroundColor: '#f8fafc',
-        }}
-      >
+      {generateStatus && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="w-full rounded-md bg-green-600 py-2 text-center font-bold text-gray-100"
+        >
+          {generateStatus}
+        </motion.div>
+      )}
+
+      {error && <Alert severity="error">{error}</Alert>}
+
+      {/* SECTION 4 */}
+      <Paper elevation={0} sx={{ p: { xs: 2, md: 3 }, border: '2px dashed #d1d5db', borderRadius: 2, backgroundColor: '#f8fafc' }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2, color: '#374151' }}>
           Generated Output
         </Typography>
+
         <Box
           sx={{
             minHeight: 150,
@@ -169,18 +338,24 @@ export default function TransformForm() {
             backgroundColor: '#ffffff',
             borderRadius: 1,
             border: '1px solid #e5e7eb',
-            color: '#64748b',
-            fontStyle: formData.originalContent ? 'normal' : 'italic',
+            color: result ? '#1e293b' : '#64748b',
+            whiteSpace: 'pre-wrap',
           }}
         >
-          {/* This space will hold the AI generated result */}
-          (Result will appear here after clicking Generate)
+          {result || '(Result will appear here after clicking Generate)'}
         </Box>
 
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 3 }}>
-          <Button startIcon={<ContentCopy />} variant="outlined" sx={{ flex: 1, textTransform: 'none' }}>Copy</Button>
-          <Button startIcon={<Autorenew />} variant="outlined" sx={{ flex: 1, textTransform: 'none' }}>Regenerate</Button>
-          <Button startIcon={<Save />} variant="outlined" color="success" sx={{ flex: 1, textTransform: 'none' }}>Save to Templates</Button>
+          <Button startIcon={<ContentCopy />} variant="outlined" sx={{ flex: 1 }} onClick={handleCopy} disabled={!result}>
+            Copy
+          </Button>
+          {/* 🔄 Regenerate button now triggers loader */}
+          <Button startIcon={<Autorenew />} variant="outlined" sx={{ flex: 1 }} disabled={!formData.originalContent} onClick={handleSubmit}>
+            Regenerate
+          </Button>
+          <Button startIcon={<Save />} variant="outlined" color="success" sx={{ flex: 1 }} disabled={!result}>
+            Save to Templates
+          </Button>
         </Stack>
       </Paper>
     </Stack>

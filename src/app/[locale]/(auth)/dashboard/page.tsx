@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
+import { openai } from '@/libs/openai';
 
 export async function generateMetadata(props: {
   params: Promise<{ locale: string }>;
@@ -15,7 +16,9 @@ export async function generateMetadata(props: {
   };
 }
 
-export default function Dashboard() {
+export default async function Dashboard() {
+
+
   // Value stored in an array as requested
   const transformations = [
     { id: 1, date: 'Dec 20', from: 'Blog', to: 'LinkedIn Post' },
