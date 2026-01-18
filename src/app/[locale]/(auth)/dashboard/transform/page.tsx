@@ -46,48 +46,49 @@ export default function TransformForm() {
 
   /* 🔌 SOCKET INITIALIZATION */
   useEffect(() => {
-    socket = io({
-      path: '/socket.io',
-    });
+    const initSocket = async () => {
+      try {
+        // Connect to the Socket.IO server running on port 3001
+        socket = io('http://localhost:3001', {
+          path: '/api/socket_io',
+          transports: ['polling', 'websocket'],
+        });
 
-    socket.on('connect', () => {
-      console.log('Socket connected:', socket.id);
-    });
+        socket.on('connect', () => {
+          console.warn('✅ Socket connected:', socket.id);
+        });
 
-    // Keep server status updates if needed
-    socket.on('generate-status', (status: string) => {
-      setGenerateStatus(status);
-    });
+        socket.on('connected', (data) => {
+          console.warn('📡 Server message:', data.message);
+        });
+
+        socket.on('generate-status', (status: string) => {
+          console.warn('📡 Status update:', status);
+          setGenerateStatus(status);
+        });
+
+        socket.on('disconnect', () => {
+          console.warn('❌ Socket disconnected');
+        });
+
+        socket.on('connect_error', (error) => {
+          console.error('🔌 Socket connection error:', error);
+          // Fallback: continue without real-time updates
+          setGenerateStatus('Connected (real-time updates unavailable)');
+        });
+      } catch (err) {
+        console.error('Socket init error:', err);
+        // Continue without socket - the app will still work
+        setGenerateStatus('Connected (real-time updates unavailable)');
+      }
+    };
+
+    initSocket();
 
     return () => {
-      socket.disconnect();
+      socket?.disconnect();
     };
   }, []);
-
-  /* ⏱️ STATUS SEQUENCER EFFECT */
-  useEffect(() => {
-    if (loading) {
-      const sequence = [
-        'Starting generation...',
-        'Generating AI content...',
-        'Saving generated content...',
-      ];
-
-      let i = 0;
-      setGenerateStatus(sequence[0]);
-
-      const interval = setInterval(() => {
-        i++;
-        if (i < sequence.length) {
-          setGenerateStatus(sequence[i]);
-        } else {
-          clearInterval(interval);
-        }
-      }, 1000);
-
-      return () => clearInterval(interval);
-    }
-  }, [loading]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -105,7 +106,6 @@ export default function TransformForm() {
       return;
     }
 
-    // Reset result and status to trigger loader
     setLoading(true);
     setError('');
     setResult('');
@@ -132,9 +132,6 @@ export default function TransformForm() {
 
       setResult(data.generatedOutput);
       setGenerateStatus('Generation completed ✅');
-
-      // Removed sweetAlert success
-      // sweetAlert('success', 'Content generated successfully!');
     } catch (err: any) {
       setError(err.message);
       setGenerateStatus(null);
@@ -174,7 +171,6 @@ export default function TransformForm() {
               backdropFilter: 'blur(8px)',
             }}
           >
-            {/* 3D Visual Element */}
             <Box sx={{ position: 'relative', width: 80, height: 80, mb: 4 }}>
               <motion.div
                 animate={{ rotateY: 360, rotateX: 360 }}
@@ -203,7 +199,6 @@ export default function TransformForm() {
               />
             </Box>
 
-            {/* Sequential Status Text */}
             <AnimatePresence mode="wait">
               <motion.div
                 key={generateStatus}
@@ -221,6 +216,7 @@ export default function TransformForm() {
         )}
       </AnimatePresence>
 
+      {/* Remaining sections (1-4) are unchanged */}
       {/* SECTION 1 */}
       <Paper elevation={0} sx={{ p: { xs: 2, md: 3 }, border: '1px solid #e5e7eb', borderRadius: 2 }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2, color: '#374151' }}>
@@ -349,7 +345,6 @@ export default function TransformForm() {
           <Button startIcon={<ContentCopy />} variant="outlined" sx={{ flex: 1 }} onClick={handleCopy} disabled={!result}>
             Copy
           </Button>
-          {/* 🔄 Regenerate button now triggers loader */}
           <Button startIcon={<Autorenew />} variant="outlined" sx={{ flex: 1 }} disabled={!formData.originalContent} onClick={handleSubmit}>
             Regenerate
           </Button>

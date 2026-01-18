@@ -5,6 +5,7 @@
     "node": ">=20"
   },
   "scripts": {
+    "dev:socket": "node socket-server.js",
     "dev:spotlight": "npx @spotlightjs/spotlight",
     "dev:next": "next dev",
     "dev": "npm-run-all db:migrate --parallel dev:*",

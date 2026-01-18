@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/nextjs';
+import { initSocketServer } from '@/libs/socketServer';
 
 const sentryOptions: Sentry.NodeOptions | Sentry.EdgeOptions = {
   // Sentry DSN
@@ -35,6 +36,13 @@ export async function register() {
       // Edge Sentry configuration
       Sentry.init(sentryOptions);
     }
+  }
+
+  // Initialize Socket.IO server in development
+  // Note: In production, this would need to be handled differently
+  if (process.env.NODE_ENV === 'development' && process.env.NEXT_RUNTIME === 'nodejs') {
+    // Socket server initialization will be handled via API routes
+    console.log('🔌 Socket.IO server will be initialized via API routes');
   }
 }
 
